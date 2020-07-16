@@ -102,11 +102,16 @@ def offline_service(params):
         return False
     if isinstance(info, list):
         # 是否强制下线整个服务
-        if params['force']:
+        if params["force"]:
             services = info
             for info in services:
-                url = params['url'] + "/eureka/apps/%s/%s/status?value=OUT_OF_SERVICE" % (info["appID"], info["instanceID"])
-                ret = my_request(url, 'PUT')
+                url = params[
+                    "url"
+                ] + "/eureka/apps/%s/%s/status?value=OUT_OF_SERVICE" % (
+                    info["appID"],
+                    info["instanceID"],
+                )
+                ret = my_request(url, "PUT")
             if ret["code"] == 200:
                 return True
             else:
@@ -115,8 +120,11 @@ def offline_service(params):
             return False
     else:
         # 覆盖状态,强制下线. 防止心跳重新注册上服务
-        url = params['url'] + "/eureka/apps/%s/%s/status?value=OUT_OF_SERVICE" % (info["appID"], info["instanceID"])
-        ret = my_request(url, 'PUT')
+        url = params["url"] + "/eureka/apps/%s/%s/status?value=OUT_OF_SERVICE" % (
+            info["appID"],
+            info["instanceID"],
+        )
+        ret = my_request(url, "PUT")
         if ret["code"] == 200:
             return True
         else:
@@ -131,15 +139,21 @@ def online_service(params):
     if isinstance(info, list):
         services = info
         for info in services:
-            url = params['url'] + "/eureka/apps/%s/%s/status?value=UP" % (info["appID"], info["instanceID"])
-            ret = my_request(url, 'DELETE')
+            url = params["url"] + "/eureka/apps/%s/%s/status?value=UP" % (
+                info["appID"],
+                info["instanceID"],
+            )
+            ret = my_request(url, "DELETE")
             if ret["code"] == 200:
                 return True
             else:
                 return False
     else:
-        url = params['url'] + "/eureka/apps/%s/%s/status?value=UP" % (info["appID"], info["instanceID"])
-        ret = my_request(url, 'DELETE')
+        url = params["url"] + "/eureka/apps/%s/%s/status?value=UP" % (
+            info["appID"],
+            info["instanceID"],
+        )
+        ret = my_request(url, "DELETE")
         if ret["code"] == 200:
             return True
         else:
@@ -152,11 +166,14 @@ def delete_service(params):
         return False
     if isinstance(info, list):
         # 是否强制下线整个服务
-        if params['force']:
+        if params["force"]:
             services = info
             for info in services:
-                url = params['url'] + "/eureka/apps/%s/%s" % (info["appID"], info["instanceID"])
-                ret = my_request(url, 'DELETE')
+                url = params["url"] + "/eureka/apps/%s/%s" % (
+                    info["appID"],
+                    info["instanceID"],
+                )
+                ret = my_request(url, "DELETE")
             if ret["code"] == 200:
                 return True
             else:
@@ -165,8 +182,8 @@ def delete_service(params):
             return False
     else:
         # 覆盖状态,强制下线. 防止心跳重新注册上服务
-        url = params['url'] + "/eureka/apps/%s/%s" % (info["appID"], info["instanceID"])
-        ret = my_request(url, 'DELETE')
+        url = params["url"] + "/eureka/apps/%s/%s" % (info["appID"], info["instanceID"])
+        ret = my_request(url, "DELETE")
         if ret["code"] == 200:
             return True
         else:
@@ -179,12 +196,13 @@ def check_service(params):
         return False
     if isinstance(info, list):
         services = info
-        ret = {}
         for info in services:
-            ret[info["instanceID"]] = info["status"]
-        return ret
+            if info["status"] != "UP":
+                return False
     else:
-        return info['status']
+        if info["status"] != "UP":
+            return False
+    return True
 
 
 def main():
@@ -205,19 +223,21 @@ def main():
     }
 
     module = AnsibleModule(argument_spec=fields)
+    if module.params["url"].startswith("http://"):
+        module.params["url"] = module.params["url"].strip("/")
+    else:
+        module.params["url"] = "http://" + module.params["url"].strip("/")
     url = module.params["url"]
     appID = module.params["appID"]
     instanceID = module.params["instanceID"]
 
-    module.params["status_url"] = url+ "/eureka/apps/%s/%s" % (appID, instanceID)
+    module.params["status_url"] = url + "/eureka/apps/%s/%s" % (appID, instanceID)
 
     if module.params["state"] is not None:
-        ret = choice_map.get(module.params["state"])(
-            module.params
-        )
+        ret = choice_map.get(module.params["state"])(module.params)
         if ret:
             if module.params["state"] == "check":
-                module.exit_json(changed=True, info=ret)
+                module.exit_json(ok=True)
             else:
                 module.exit_json(changed=True)
         else:
@@ -225,7 +245,7 @@ def main():
     else:
         ret = get_status(module.params)
         if not ret:
-            module.fail_json(msg='Get Eureka Info Failed')
+            module.fail_json(msg="Get Eureka Info Failed")
         else:
             module.exit_json(ok=True, info=ret)
 
